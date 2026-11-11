@@ -231,7 +231,7 @@ const back = t => { const c = 1.7; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow
 const V3 = THREE.Vector3;
 
 /* ── 幾何：1 公釐 = 5 單位；棒子 15 公分 × 9 公釐 × 4 公釐，毛線直徑約 2.6 公釐 ── */
-const H = 22, TH = 10, ARM = 375, YR = 7, YO = H + YR, PITCH = 20, DEL = 10, R0 = 34, KMAX = 56, MATZ = -120;
+const H = 22, TH = 10, ARM = 375, YR = 7, YO = H + YR, PITCH = 20, DEL = 10, R0 = 50, KMAX = 56, MATZ = -120;
 const ZA = -TH, ZB = TH;
 const rr = k => R0 + PITCH*k/4;
 const DIR = [[1,0],[0,1],[-1,0],[0,-1]];
@@ -286,7 +286,20 @@ const stickGeo = (() => { const s = new THREE.Shape(), r = H*.9; s.moveTo(-ARM+r
 const stickA = sh(new THREE.Mesh(stickGeo, woodMat)), stickB = sh(new THREE.Mesh(stickGeo, woodMat)); stickA.position.z = ZA; workG.add(stickA, stickB);
 const markM = new THREE.Mesh(new THREE.BoxGeometry(30, 2*H+3, 2*TH+3), std({color:'#e58a9b', roughness:.8, transparent:true})); markM.position.set(ARM-37, 0, ZA); workG.add(markM);
 const glueM = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), std({color:'#ffffff', roughness:.2, transparent:true, opacity:.9})); workG.add(glueM);
-const thumbM = sh(new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), skinMat)); workG.add(thumbM);
+const nailMat = std({color:'#fbe9df', roughness:.25}), creaseMat = std({color:'#d9a98a', roughness:.8});
+const mk = (geo, mat) => sh(new THREE.Mesh(geo, mat));
+function segment(g, r0, r1, len){ const c = mk(new THREE.CylinderGeometry(r0, r1, len, 22), skinMat); c.position.y = -len/2; const e = mk(new THREE.SphereGeometry(r1, 22, 14), skinMat); e.position.y = -len; g.add(c, e); }
+function nailOn(g, r){ const nail = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), nailMat); nail.scale.set(.76, 1.05, .32); nail.position.set(0, -r*.45, r*.72);
+  const edge = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 10, 0, TAU, 0, .9), std({color:'#fffaf4', roughness:.3})); edge.scale.set(.74, .5, .3); edge.position.set(0, r*.12, r*.74); g.add(nail, edge); }
+/* 短短的指尖（捏線用） */
+function makeTip(r){ const g = new THREE.Group(); g.add(mk(new THREE.SphereGeometry(r, 22, 14), skinMat)); segment(g, r, r*1.1, r*3.4); nailOn(g, r); g.scale.z = .82; const w = new THREE.Group(); w.add(g); return w; }
+/* 拇指：兩節、有指甲、連著一小塊手掌 */
+function makeThumb(){ const g = new THREE.Group(), r = 20; g.add(mk(new THREE.SphereGeometry(r, 24, 16), skinMat)); segment(g, r, r*1.1, 50); nailOn(g, r);
+  for (const y of [-44, -50]){ const c = new THREE.Mesh(new THREE.TorusGeometry(r*1.1, 1, 6, 22, Math.PI), creaseMat); c.rotation.x = HALF; c.position.set(0, y, 1); g.add(c); }
+  const prox = new THREE.Group(); prox.position.y = -50; prox.rotation.x = -.42; segment(prox, r*1.1, r*1.32, 72);
+  const palm = mk(new THREE.SphereGeometry(1, 24, 16), skinMat); palm.scale.set(40, 58, 24); palm.position.set(-8, -118, -2); prox.add(palm); g.add(prox);
+  g.scale.z = .8; const w = new THREE.Group(); w.add(g); return w; }
+const thumbM = makeThumb(); workG.add(thumbM);
 
 /* 毛線管 */
 const NSEG = 14, RAD = 7;
@@ -295,18 +308,25 @@ function makeTube(pts, rad=YR){ const cv = new THREE.CatmullRomCurve3(pts, false
   for (let i=0;i<uv.count;i++) uv.setX(i, uv.getX(i)*L);
   const m = sh(new THREE.Mesh(g, yarnMat('#c4473f'))); m.userData = {cv, N}; workG.add(m); return m; }
 const setFrac = (m, t) => { t = clamp(t, 0, 1); m.visible = t > 0; m.geometry.setDrawRange(0, Math.floor(t*m.userData.N + 1e-6)*RAD*6); };
-const contact = (m, t) => { const cv = m.userData.cv, c = cv.getPoint(t), tg = cv.getTangent(t); return {c, h:c.clone().addScaledVector(tg, 80)}; };
-function wrapPts(k){ const a = k&3, r = rr(k), rn = rr(k+1), P = []; if (k === 0) P.push(new V3(0, 0, ZB+TH+YR*2.4));
-  P.push(F3(a,r,-YO,zf(a)), F3(a,r,YO,zf(a)), F3(a,r+3,YO+1,zb(a)), F3(a,r+DEL-3,-YO-1,zb(a)), F3(a,r+DEL,-YO,zf(a)), F3(a,r+DEL,YO,zf(a)), F3(a+1,rn,-YO,zf(a+1))); return P; }
+const contact = (m, t) => { const cv = m.userData.cv, c = cv.getPoint(t), tg = cv.getTangent(t); const h = c.clone().addScaledVector(tg, 80); h.z += 36*clamp(c.z/8, -1, 1); return {c, h}; };
+const MK = {};
+const startM = (() => { const q = Math.SQRT1_2, N0 = H+YR+2, zF = ZB+TH+YR, zK = ZA-TH-YR, P = [], v = (x,y,z) => P.push(new V3(x,y,z));
+  const pt = (sx,sy,e,z) => v(sx*(N0+e*q), sy*(N0+e*q), z);
+  v(-135,0,YR); v(-95,0,YR); v(-60,3,YR+1); MK.tail = P.length-1;
+  for (let i=0;i<3;i++){ const o = (i-1)*9*q, e = i*13;                 /* 左上 → 右下，背面繞回左上 */
+    pt(-1,1,e,zF-5); v(o,o,zF+1); pt(1,-1,e,zF-5); pt(1,-1,e+5,0); pt(1,-1,e,zK+5); v(o+3,o+3,zK-1); pt(-1,1,e+4,zK+5); pt(-1,1,e+9,0); }
+  MK.A = P.length-1; v(-N0-18,0,YR*3.2);                                 /* 從正面跨過左邊的棒子，換到左下 */
+  for (let i=0;i<3;i++){ const o = (i-1)*9*q, e = i*13, up = YR*1.8;     /* 左下 → 右上 */
+    pt(-1,-1,e,zF-5); v(-o,o,zF+1+up); pt(1,1,e,zF-5); if (i === 2) break;
+    pt(1,1,e+5,0); pt(1,1,e,zK+5); v(-o-3,o+3,zK-1-up); pt(-1,-1,e+4,zK+5); pt(-1,-1,e+9,0); }
+  MK.end = P.length-1; MK.n = P.length-1; MK.last = P[P.length-1].clone(); return makeTube(P); })();
+const startT = V => V.nx <= 0 ? V.tail*MK.tail/MK.n : (V.nx <= 3 ? lerp(MK.tail, MK.A, V.nx/3) : lerp(MK.A, MK.end, (V.nx-3)/3))/MK.n;
+function wrapPts(k){ const a = k&3, r = rr(k), rn = rr(k+1), P = [], bump = (a === 2 && r < 140) ? YR*1.9 : 0; if (k === 0) P.push(MK.last.clone());
+  P.push(F3(a,r,-YO,zf(a)), F3(a,r,0,zf(a)+bump), F3(a,r,YO,zf(a)), F3(a,r+3,YO+1,zb(a)), F3(a,r+DEL-3,-YO-1,zb(a)), F3(a,r+DEL,-YO,zf(a)), F3(a,r+DEL,0,zf(a)+bump), F3(a,r+DEL,YO,zf(a)), F3(a+1,rn,-YO,zf(a+1))); return P; }
 const wraps = []; for (let k=0;k<=KMAX;k++) wraps.push(makeTube(wrapPts(k)));
-function tOf(k, f, lin){ if (lin) return f; const o = k === 0 ? 1 : 0, a = 1+o, b = 4+o, e = 6+o;
+function tOf(k, f, lin){ if (lin) return f; const o = k === 0 ? 1 : 0, a = 2+o, b = 5+o, e = 8+o;
   const i = f < .34 ? lerp(0,a,ease(f/.34)) : f < .64 ? lerp(a,b,ease((f-.34)/.3)) : lerp(b,e,ease((f-.64)/.36)); return i/e; }
-const xl = []; { const L = (H+5)*1.42, q = Math.SQRT1_2;
-  for (let j=0;j<6;j++){ const o = ((j%3)-1)*8, d = j < 3 ? [q,-q] : [-q,-q], n = j < 3 ? [q,q] : [q,-q], z1 = ZB+TH+YR*(j < 3 ? 1 : 1.9), z0 = ZA-TH-YR*(j < 3 ? 1 : 1.9);
-    const P = (s, e, z) => new V3(s*L*d[0] + o*n[0] + e*d[0], s*L*d[1] + o*n[1] + e*d[1], z);
-    xl.push(makeTube([P(-1,0,z1), P(1,0,z1), P(1,9,(z1+z0)/2), P(1,0,z0), P(-1,0,z0), P(-1,-9,(z1+z0)/2), P(-1,3,z1)])); } }
-const tailM = makeTube([new V3(8,6,ZB+TH+YR), new V3(-24,2,ZB+TH+YR*.8), new V3(-48,0,ZA+TH+YR), new V3(-130,0,ZA+TH+YR)]);
-const KN = F3(3, rr(KMAX-1)+DEL+16, 0, zf(3)+3);
+const KN = F3(3, rr(KMAX-1)+DEL+14, 0, zf(3)+3);
 const hangM = (() => { const z = zf(3), P = [KN.clone(), new V3(0, ARM-10, z)], cy = ARM+34, rad = 36; for (let i=0;i<=14;i++){ const an = -HALF + i/14*TAU; P.push(new V3(rad*Math.cos(an), cy + rad*Math.sin(an), z)); } return makeTube(P, YR*.85); })();
 
 /* 活動零件 */
@@ -321,7 +341,7 @@ function makeScissors(){ const g = new THREE.Group(); g.halves = [];
     const ring = sh(new THREE.Mesh(new THREE.TorusGeometry(15,4.5,8,20), roseMat)); ring.position.set(-46,s*17,s*1.5); h.add(blade, arm, ring); g.add(h); g.halves.push(h); }
   g.setOpen = o => { g.halves[0].rotation.z = -(.06+.3*o); g.halves[1].rotation.z = .06+.3*o; }; return g; }
 const scis = makeScissors(); workG.add(scis);
-const handG = new THREE.Group(); { const f1 = sh(new THREE.Mesh(new THREE.SphereGeometry(1,16,12), skinMat)), f2 = f1.clone(); f1.scale.set(26,11,10); f1.position.set(18,-10,8); f1.rotation.z = -.45; f2.scale.set(23,11,10); f2.position.set(18,11,-6); f2.rotation.z = .4; handG.add(f1,f2); } scene.add(handG);
+const handG = new THREE.Group(); { const f1 = makeTip(10), f2 = makeTip(11.5); f1.position.set(-2,-8,8); f1.rotation.set(-.75, .2, 1.0); f2.position.set(2,8,-7); f2.rotation.set(-.45, -.25, .45); handG.add(f1, f2); } scene.add(handG);
 const BALL = new V3(390, -400, MATZ+60);
 const ballM = sh(new THREE.Mesh(new THREE.SphereGeometry(60, 28, 20), yarnMat('#c4473f'))); ballM.position.copy(BALL); scene.add(ballM);
 const slackM = sh(new THREE.Mesh(new THREE.BufferGeometry(), yarnMat('#c4473f'))); scene.add(slackM);
@@ -367,11 +387,10 @@ function applyV(V, useOrb=true){
   stickB.position.set(0, -260*(1-V.cross), ZB + 80*Math.sin(Math.PI*V.cross)); stickB.rotation.z = HALF*V.cross;
   markM.visible = V.mark > 0; markM.material.opacity = V.mark;
   if (V.glue > 0 && V.cross < 1){ glueM.visible = true; glueM.position.set(0,0,ZA+TH+2); glueM.scale.set(15*V.glue, 12*V.glue, 5*V.glue); glueM.material.opacity = .9; }
-  setFrac(tailM, V.tail);
-  if (V.thumb > 0){ thumbM.visible = true; thumbM.position.set(-2,-30,ZB+TH+16); thumbM.scale.set(24*V.thumb, 44*V.thumb, 15*V.thumb); thumbM.rotation.z = -.2; }
-  for (let j=0;j<6;j++) setFrac(xl[j], V.nx - j);
+  setFrac(startM, startT(V));
+  if (V.thumb > 0){ const e = ease(V.thumb); thumbM.visible = true; thumbM.position.set(-84, 6, YR*2 + 15 + 80*(1-e)); thumbM.rotation.set(-.3, 0, .12); thumbM.scale.setScalar(1); }
   let hand = null, from = null, hex = R.cols[Math.min(V.k, K-1)];
-  if (V.xh){ const j = Math.min(5, Math.floor(V.nx)), o = contact(xl[j], Math.min(1, V.nx - j)); from = o.c; hand = o.h; hex = c0; }
+  if (V.xh){ const o = contact(startM, startT(V)); from = o.c; hand = o.h; hex = c0; }
   const kd = Math.min(V.k, K); for (let k=0;k<=KMAX;k++) setFrac(wraps[k], k < kd ? 1 : 0);
   setFrac(hangM, 0); tassG.visible = false;
 
@@ -384,10 +403,10 @@ function applyV(V, useOrb=true){
         const s = YR*1.5*seg(p,.56,.66)*(1-seg(p,.93,1)); if (s > .2){ knotM.visible = true; knotM.position.copy(q); knotM.scale.setScalar(s); knotM.material = yarnMat(newH); } } }
     if (p < .4){ const s = 1 - seg(p,.3,.4); if (s > .02){ const perp = new V3(-dir.y, dir.x, 0).normalize(); scis.visible = true; scis.scale.setScalar(s); scis.setOpen(1 - seg(p,.1,.24));
         scis.position.copy(C).addScaledVector(perp, -34); scis.rotation.set(0, 0, Math.atan2(perp.y, perp.x)); } }
-  } else if (V.fin > 0){ const p = V.fin, last = wraps[K-1], cv = last.userData.cv, Xp = cv.getPoint(5/6), C = cv.getPoint(5.5/6);
-    if (p < .3){ const o = contact(wraps[K], 0); from = o.c; hand = o.h; const d = cv.getTangent(5.5/6), perp = new V3(-d.y, d.x, 0).normalize();
+  } else if (V.fin > 0){ const p = V.fin, last = wraps[K-1], cv = last.userData.cv, Xp = cv.getPoint(7/8), C = cv.getPoint(7.5/8);
+    if (p < .3){ const o = contact(wraps[K], 0); from = o.c; hand = o.h; const d = cv.getTangent(7.5/8), perp = new V3(-d.y, d.x, 0).normalize();
       scis.visible = true; scis.scale.setScalar(1); scis.setOpen(1 - seg(p,.12,.27)); scis.position.copy(C).addScaledVector(perp, -34); scis.position.z += 8; scis.rotation.set(0, 0, Math.atan2(perp.y, perp.x)); }
-    else { setFrac(last, 5/6); const e = ease(seg(p,.3,.6)); setRod(rodA, Xp, C.clone().lerp(KN, e), lastH);
+    else { setFrac(last, 7/8); const e = ease(seg(p,.3,.6)); setRod(rodA, Xp, C.clone().lerp(KN, e), lastH);
       if (V.hang <= 0 && e >= 1) setRod(rodB, KN, tmp.copy(KN).add(new V3(32,26,6)).clone(), lastH, YR*.85);
       const s = YR*1.5*seg(p,.5,.62); if (s > .2){ knotM.visible = true; knotM.position.copy(KN); knotM.scale.setScalar(s); knotM.material = yarnMat(lastH); }
       const gl = seg(p,.68,.85); if (gl > 0 && p < 1){ glueM.visible = true; glueM.position.copy(KN); glueM.position.z += 4; glueM.scale.set(14*gl, 12*gl, 9*gl); glueM.material.opacity = .9 - .55*seg(p,.88,1); } }
@@ -398,8 +417,9 @@ function applyV(V, useOrb=true){
   if (hand){ if (from) setRod(rodA, from, hand, hex);
     workG.updateMatrixWorld(true); const hw = workG.localToWorld(hand.clone());
     handG.visible = true; handG.position.copy(hw); ballM.visible = true; ballM.material = yarnMat(hex);
-    const top = BALL.clone(); top.z += 52; top.x -= 20; const mid = hw.clone().lerp(top, .5); mid.z = Math.min(hw.z, top.z) - 30;
-    slackM.geometry.dispose(); slackM.geometry = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(hw.clone().add(new V3(26,-4,0)), mid, top), 24, YR*.8, 6, false); slackM.material = yarnMat(hex); slackM.visible = true; }
+    const top = BALL.clone(); top.z += 54; top.x -= 16; const out = new V3(hw.x, hw.y, 0); if (out.length() < 1) out.set(1,-1,0); out.normalize();
+    const p1 = hw.clone().addScaledVector(out, 60); p1.z = Math.max(hw.z, 30) + 70; const p2 = top.clone(); p2.z += 140;
+    slackM.geometry.dispose(); slackM.geometry = new THREE.TubeGeometry(new THREE.CubicBezierCurve3(hw.clone(), p1, p2, top), 36, YR*.7, 6, false); slackM.material = yarnMat(hex); slackM.visible = true; }
 }
 
 /* ── 步驟 ── */
@@ -415,13 +435,13 @@ function buildSteps(R){
     set(p,V){ V.scene = 'prep'; V.pp = p; V.z = .95; V.tilt = .42; }});
   S.push({t:'疊成十字', d:'一根橫放，中心點一滴白膠。另一根轉成直的，對準中心壓上去。在右邊那根的尾端貼一小段紙膠帶。', tip:'紙膠帶是數圈用的記號。線每回到記號一次，就是繞完一圈。', dur:4400,
     set(p,V){ V.tilt = .75; V.glue = seg(p,0,.18); V.cross = ease(seg(p,.22,.78)); V.mark = seg(p,.84,.94); V.tail = 0; V.nx = 0; V.hand = false; if (p > .86) V.label = '紙膠帶記號'; }});
-  S.push({t:'線頭壓在中心', d:`拿${cname(b0)}的線，線頭留 5 公分，順著左邊的棒子擺好，用拇指壓在十字中心。`, tip:'線尾不用剪。等一下繞線時會一起包進去。', dur:3400,
-    set(p,V){ const e = ease(seg(p,0,.35)); V.z = lerp(1,2.6,e); V.tilt = lerp(.75,.7,e); V.tail = ease(seg(p,.3,.75)); V.thumb = seg(p,.75,.9); V.nx = 0; V.hand = false; if (p > .8) V.label = '拇指壓住'; }});
-  S.push({t:'斜繞 3 圈', d:'線從左下拉到右上，繞過背面再回來。同一個斜向繞 3 圈，把兩根棒子綁在一起。', tip:'每一圈都拉緊，十字才不會轉動。', dur:4200,
-    set(p,V){ const e = ease(seg(p,0,.2)); V.z = 2.6; V.tilt = lerp(.7,.95,e); V.az = lerp(-HALF,-1.3,e); V.nx = 3*p; V.xh = true; V.thumb = 1 - seg(p,0,.15); V.label = `斜繞第 ${Math.min(3, Math.floor(p*3)+1)} 圈`; }});
-  S.push({t:'換方向再繞 3 圈', d:'換成另一個斜向，再繞 3 圈。正面看起來是一個叉叉，十字就固定好了。', tip:'輕輕扭一下，兩根棒子不會動就可以開始繞了。', dur:4200,
+  S.push({t:'線頭壓在棒子上', d:`拿${cname(b0)}的線，線頭留 5 公分，順著左邊的棒子擺好，用拇指壓住。`, tip:'線尾不用剪。等一下繞線時會一起包進去。', dur:3400,
+    set(p,V){ const e = ease(seg(p,0,.35)); V.z = lerp(1,2.6,e); V.tilt = lerp(.75,.7,e); V.tail = ease(seg(p,.25,.6)); V.thumb = seg(p,.6,.92); V.nx = 0; V.hand = false; if (p > .8) V.label = '拇指壓住'; }});
+  S.push({t:'斜繞 3 圈', d:'線從拇指壓住的地方出發，由左上拉到右下，壓過十字中心，從背面繞回左上。同一個斜向繞 3 圈。', tip:'每一圈都拉緊，十字才不會轉動。', dur:4200,
+    set(p,V){ const e = ease(seg(p,0,.2)); V.z = 2.6; V.tilt = lerp(.7,.95,e); V.az = lerp(-HALF,-1.3,e); V.nx = 3*p; V.xh = true; V.thumb = 1 - seg(p,.05,.3); V.label = `斜繞第 ${Math.min(3, Math.floor(p*3)+1)} 圈`; }});
+  S.push({t:'換方向再繞 3 圈', d:'線從正面跨過左邊的棒子，換到左下。由左下拉到右上，再繞 3 圈。正面看起來是一個叉叉，十字就固定好了。', tip:'輕輕扭一下，兩根棒子不會動就可以開始繞了。', dur:4200,
     set(p,V){ const e = ease(seg(p,.85,1)); V.z = 2.6; V.tilt = lerp(.95,CA[0],e); V.az = -1.3; V.nx = 3 + 3*p; V.xh = p < 1; V.label = p < 1 ? `另一個方向第 ${Math.min(3, Math.floor(p*3)+1)} 圈` : '固定好了'; }});
-  S.push({t:'壓：線壓過棒子正面', d:'貼了記號的棒子朝右。線拉過來，從上面壓過這根棒子的正面。', tip:'口訣第一個字是「壓」。線一定從棒子的正面經過。', dur:3400,
+  S.push({t:'壓：線壓過棒子正面', d:'線停在右上角。接著往右邊貼了記號的那根棒子走，從上面壓過它的正面。', tip:'口訣第一個字是「壓」。線一定從棒子的正面經過。', dur:3400,
     set(p,V){ const e = ease(seg(p,0,.2)); close(V,0); V.z = lerp(2.6,3,e); V.cx *= e; V.cy *= e; V.f = .34*p*.9999; camWrap(V, V.f); V.cue = 0; }});
   S.push({t:'繞：從後面繞回來', d:'線鑽到棒子後面，貼著背面繞回來，回到棒子的另一側。', tip:'鏡頭會轉到側面，看線怎麼走棒子的背面。也可以拖曳畫面，自己轉著看。', dur:4200,
     set(p,V){ close(V,0); V.f = .34 + .3*p*.9999; camWrap(V, .3 + .3*p); if (p < .4) camWrap(V, .3 + .12*p/.4); else { V.tilt = CB[0]; V.az = CB[1]; } V.cue = 1; }});
@@ -470,7 +490,7 @@ const customRecipe = () => { const n = st.custom.n, rs = splitRounds(n); return 
 const recipeAt = i => i < PRESETS.length ? makeRecipe(PRESETS[i].name, PRESETS[i].bands) : customRecipe();
 let steps = [], timer = 0, raf = 0;
 
-function useRecipe(rec){ R = rec; for (let k=0;k<rec.K;k++) wraps[k].material = yarnMat(rec.cols[k]); for (const m of xl) m.material = yarnMat(rec.cols[0]); tailM.material = yarnMat(rec.cols[0]); hangM.material = yarnMat(rec.cols[rec.K-1]); buildTassels(rec); }
+function useRecipe(rec){ R = rec; for (let k=0;k<rec.K;k++) wraps[k].material = yarnMat(rec.cols[k]); startM.material = yarnMat(rec.cols[0]); hangM.material = yarnMat(rec.cols[rec.K-1]); buildTassels(rec); }
 const computeV = (i,p) => { const V = {...DEF}; steps[i].set(p, V); return V; };
 function readTokens(){ const m = getComputedStyle(document.documentElement).getPropertyValue('--mat').trim() || '#93a39b'; scene.background = new THREE.Color(m); }
 function draw(){ const V = computeV(st.i, st.p); applyV(V); renderer.render(scene, camera);
