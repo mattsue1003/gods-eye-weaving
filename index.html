@@ -62,6 +62,7 @@ h2{margin:0 0 12px;font-family:var(--font-display);font-weight:700;font-size:24p
 .spill,.plabel,.viewbtn{position:absolute;border-radius:999px;background:rgba(40,32,28,.8);color:#fff;white-space:nowrap}
 .spill{left:12px;bottom:12px;padding:.3em .9em;font-size:clamp(14px,2.2vw,19px);pointer-events:none}
 .plabel{transform:translate(-50%,-50%);padding:.15em .7em;font-size:clamp(12px,1.9vw,16px);pointer-events:none}
+.plabel.tag{background:#fff8ec;color:#7a2f40;font-weight:700;box-shadow:0 0 0 2px #b4576a;font-size:clamp(12px,2vw,17px)}
 .viewbtn{right:12px;bottom:12px;min-height:36px;padding:2px 14px;border:none;font-size:13px}
 .viewbtn:disabled{background:rgba(40,32,28,.45);cursor:default}
 .leadbtn{position:absolute;top:12px;right:12px;min-height:44px;padding:4px 16px;border:none;border-radius:999px;background:rgba(40,30,28,.68);color:#fff;font-size:15px;z-index:2}
@@ -188,7 +189,7 @@ footer{color:var(--muted);font-size:.88em;border-top:1px solid var(--line);paddi
     <div>
       <h2>材料</h2>
       <ul id="mats"></ul>
-      <p class="note">製作時間約 30–40 分鐘。完成尺寸約 15 公分見方。</p>
+      <p class="note">製作時間約 30–40 分鐘。完成的大小大約等於棒子的長度。</p>
     </div>
     <div>
       <h2>口訣</h2>
@@ -214,7 +215,7 @@ footer{color:var(--muted);font-size:.88em;border-top:1px solid var(--line);paddi
     </dl>
   </section>
 
-  <footer>Ojo de Dios 源自墨西哥惠喬爾族（Huichol），傳統上做來為家人祈求守護。動畫裡的尺寸以 15 公分棒子、中粗毛線估算，實際用量會因毛線粗細略有不同。</footer>
+  <footer>Ojo de Dios 源自墨西哥惠喬爾族（Huichol），傳統上做來為家人祈求守護。動畫裡的尺寸以約 18 公分的棒子、中粗毛線估算，實際用量會因毛線粗細略有不同。</footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -230,8 +231,8 @@ const seg = (p,a,b) => clamp((p-a)/(b-a), 0, 1);
 const back = t => { const c = 1.7; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
 const V3 = THREE.Vector3;
 
-/* ── 幾何：1 公釐 = 5 單位；棒子 15 公分 × 9 公釐 × 4 公釐，毛線直徑約 2.6 公釐 ── */
-const H = 22, TH = 10, ARM = 375, YR = 7, YO = H + YR, PITCH = 20, DEL = 10, R0 = 50, KMAX = 56, MATZ = -120;
+/* ── 幾何：1 公釐 = 5 單位；棒子約 18 公分 × 9 公釐 × 4 公釐，毛線直徑約 2.8 公釐 ── */
+const H = 22, TH = 10, ARM = 440, YR = 7, YO = H + YR, PITCH = 20, DEL = 10, LIFT = 10.5, TR = 6, R0 = 78, KMAX = 56, MATZ = -120;
 const ZA = -TH, ZB = TH;
 const rr = k => R0 + PITCH*k/4;
 const DIR = [[1,0],[0,1],[-1,0],[0,-1]];
@@ -310,29 +311,47 @@ function makeTube(pts, rad=YR){ const cv = new THREE.CatmullRomCurve3(pts, false
 const setFrac = (m, t) => { t = clamp(t, 0, 1); m.visible = t > 0; m.geometry.setDrawRange(0, Math.floor(t*m.userData.N + 1e-6)*RAD*6); };
 const contact = (m, t) => { const cv = m.userData.cv, c = cv.getPoint(t), tg = cv.getTangent(t); const h = c.clone().addScaledVector(tg, 80); h.z += 36*clamp(c.z/8, -1, 1); return {c, h}; };
 const MK = {};
-const startM = (() => { const q = Math.SQRT1_2, N0 = H+YR+2, zF = ZB+TH+YR, zK = ZA-TH-YR, P = [], v = (x,y,z) => P.push(new V3(x,y,z));
+const startM = (() => { const q = Math.SQRT1_2, N0 = H+YR, zF = ZB+TH+YR, zK = ZA-TH-YR, P = [], v = (x,y,z) => P.push(new V3(x,y,z));
   const pt = (sx,sy,e,z) => v(sx*(N0+e*q), sy*(N0+e*q), z);
-  v(-135,0,YR); v(-95,0,YR); v(-60,3,YR+1); MK.tail = P.length-1;
-  for (let i=0;i<3;i++){ const o = (i-1)*9*q, e = i*13;                 /* 左上 → 右下，背面繞回左上 */
-    pt(-1,1,e,zF-5); v(o,o,zF+1); pt(1,-1,e,zF-5); pt(1,-1,e+5,0); pt(1,-1,e,zK+5); v(o+3,o+3,zK-1); pt(-1,1,e+4,zK+5); pt(-1,1,e+9,0); }
-  MK.A = P.length-1; v(-N0-18,0,YR*3.2);                                 /* 從正面跨過左邊的棒子，換到左下 */
-  for (let i=0;i<3;i++){ const o = (i-1)*9*q, e = i*13, up = YR*1.8;     /* 左下 → 右上 */
-    pt(-1,-1,e,zF-5); v(-o,o,zF+1+up); pt(1,1,e,zF-5); if (i === 2) break;
-    pt(1,1,e+5,0); pt(1,1,e,zK+5); v(-o-3,o+3,zK-1-up); pt(-1,-1,e+4,zK+5); pt(-1,-1,e+9,0); }
+  v(-150,0,YR); v(-105,0,YR); v(-64,3,YR+1); MK.tail = P.length-1;
+  for (let i=0;i<2;i++){ const o = (i-.5)*14.5*q, e = i*14;              /* 左上 → 右下，背面繞回左上 */
+    pt(-1,1,e,zF-5); v(o,o,zF+1); pt(1,-1,e,zF-5); pt(1,-1,e+4,0); pt(1,-1,e,zK+5); v(o,o,zK-1); pt(-1,1,e+3,zK+5); pt(-1,1,e+8,0); }
+  MK.A = P.length-1; v(-N0-16,0,YR*3.2);                                 /* 從正面跨過左邊的棒子，換到左下 */
+  for (let i=0;i<2;i++){ const o = (i-.5)*14.5*q, e = i*14, up = YR*2;   /* 左下 → 右上 */
+    pt(-1,-1,e,zF-5); v(-o,o,zF+1+up); pt(1,1,e,zF-5); if (i === 1) break;
+    pt(1,1,e+4,0); pt(1,1,e,zK+5); v(-o,o,zK-1-up); pt(-1,-1,e+3,zK+5); pt(-1,-1,e+8,0); }
   MK.end = P.length-1; MK.n = P.length-1; MK.last = P[P.length-1].clone(); return makeTube(P); })();
-const startT = V => V.nx <= 0 ? V.tail*MK.tail/MK.n : (V.nx <= 3 ? lerp(MK.tail, MK.A, V.nx/3) : lerp(MK.A, MK.end, (V.nx-3)/3))/MK.n;
-function wrapPts(k){ const a = k&3, r = rr(k), rn = rr(k+1), P = [], bump = (a === 2 && r < 140) ? YR*1.9 : 0; if (k === 0) P.push(MK.last.clone());
-  P.push(F3(a,r,-YO,zf(a)), F3(a,r,0,zf(a)+bump), F3(a,r,YO,zf(a)), F3(a,r+3,YO+1,zb(a)), F3(a,r+DEL-3,-YO-1,zb(a)), F3(a,r+DEL,-YO,zf(a)), F3(a,r+DEL,0,zf(a)+bump), F3(a,r+DEL,YO,zf(a)), F3(a+1,rn,-YO,zf(a+1))); return P; }
+const startT = V => V.nx <= 0 ? V.tail*MK.tail/MK.n : (V.nx <= 2 ? lerp(MK.tail, MK.A, V.nx/2) : lerp(MK.A, MK.end, (V.nx-2)/2))/MK.n;
+/* 一圈：壓過正面 → 繞背面 → 第二次壓過正面（疊在兩圈中間的上面，不互相穿過）→ 拉向下一根 */
+function wrapPts(k){ const a = k&3, r = rr(k), rn = rr(k+1), z = zf(a), P = [], bump = (a === 2 && r < 158) ? YR*1.9 : 0; if (k === 0) P.push(MK.last.clone());
+  P.push(F3(a,r,-YO,z), F3(a,r,0,z+bump), F3(a,r,YO,z), F3(a,r+3,YO+1,zb(a)), F3(a,r+DEL-3,-YO-1,zb(a)), F3(a,r+DEL,-YO,z+LIFT), F3(a,r+DEL,0,z+LIFT+bump*.6), F3(a,r+DEL,YO,z+LIFT), F3(a+1,rn,-YO,zf(a+1))); return P; }
 const wraps = []; for (let k=0;k<=KMAX;k++) wraps.push(makeTube(wrapPts(k)));
 function tOf(k, f, lin){ if (lin) return f; const o = k === 0 ? 1 : 0, a = 2+o, b = 5+o, e = 8+o;
   const i = f < .34 ? lerp(0,a,ease(f/.34)) : f < .64 ? lerp(a,b,ease((f-.34)/.3)) : lerp(b,e,ease((f-.64)/.36)); return i/e; }
-const KN = F3(3, rr(KMAX-1)+DEL+14, 0, zf(3)+3);
-const hangM = (() => { const z = zf(3), P = [KN.clone(), new V3(0, ARM-10, z)], cy = ARM+34, rad = 36; for (let i=0;i<=14;i++){ const an = -HALF + i/14*TAU; P.push(new V3(rad*Math.cos(an), cy + rad*Math.sin(an), z)); } return makeTube(P, YR*.85); })();
-
+/* 收尾：在最上面那根棒子上打兩個半結 */
+const YK = rr(KMAX-1)+DEL+16;
+function hitchPts(y, L, start){ return [start.clone(), new V3(30,y+8,30), new V3(4,y+10,26+L), new V3(-34,y+9,22), new V3(-30,y+6,-4), new V3(0,y+4,-8), new V3(30,y+2,-4), new V3(42,y-2,22), new V3(27,y+3,30+L), new V3(8,y+9,26), new V3(2,y+34,32)]; }
+function hitchState(p){ if (p < .4) return {L:0, fr:lerp(0,.7,ease(p/.4))}; if (p < .5) return {L:18*ease((p-.4)/.1), fr:.7}; if (p < .78) return {L:18, fr:lerp(.7,1,ease((p-.5)/.28))}; return {L:lerp(18,12.5,ease((p-.78)/.22)), fr:1}; }
+const hangM = (() => { const P = [new V3(2,YK+48,32), new V3(0,ARM+4,30)], cy = ARM+40, rad = 36; for (let i=0;i<=14;i++){ const an = -HALF + i/14*TAU; P.push(new V3(rad*Math.cos(an), cy + rad*Math.sin(an), 30)); } return makeTube(P, TR); })();
+/* 換顏色：兩條線併在一起打單結（結的座標：x 往外、y 垂直、z 朝自己） */
+const KQ = Math.SQRT1_2, kmap = (B, p) => new V3(B.x + (p[0]-p[1])*KQ, B.y + (p[0]+p[1])*KQ, B.z + p[2]);
+const K0 = Array.from({length:11}, (_,i) => [i*34, 0, 0]);
+const K1 = [[0,0,0],[45,0,0],[82,8,0],[92,38,0],[68,60,0],[40,46,0],[40,12,13],[48,-20,-6],[52,-40,-14],[54,-58,-14],[55,-76,-14]];
+const K2 = [[0,0,0],[45,0,0],[82,8,0],[92,38,0],[68,60,0],[40,46,0],[40,12,13],[50,-16,2],[62,-4,-13],[66,26,2],[74,74,22]];
+const KT = (f, dx, tail) => K2.map((q,i) => i === 0 ? [0,0,0] : i === 1 ? [(62+dx[0])*.5, (22+dx[1])*.3, 0] : i === 10 ? [62+dx[0]+tail[0], 22+dx[1]+tail[1], tail[2]] : [62+(q[0]-62)*f+dx[0], 22+(q[1]-22)*f+dx[1], q[2]*.6]);
+const K3 = KT(.3,[0,0],[10,46,8]), K4 = KT(.3,[-46,-16],[10,46,8]), K5 = KT(.3,[-46,-16],[4,17,5]);
+const lerpK = (A, B, t) => A.map((q,i) => [lerp(q[0],B[i][0],t), lerp(q[1],B[i][1],t), lerp(q[2],B[i][2],t)]);
+function pairPts(C, side, off){ const cv = new THREE.CatmullRomCurve3(C, false, 'centripetal'), out = [], n = new V3(), up = new V3(0,0,1), last = new V3(0,1,0);
+  for (let i=0;i<=44;i++){ const t = i/44, q = cv.getPoint(t), tg = cv.getTangent(t); n.crossVectors(tg, up); if (n.lengthSq() < .04) n.copy(last); else { n.normalize(); last.copy(n); } out.push(q.addScaledVector(n, side*off)); } return out; }
+const joinBase = A => new V3(A.x-4, A.y+5, zb(0)-3);
+const dyn = [];
+function dynTube(i, pts, rad, hex, frac=1, seg=10){ let m = dyn[i]; if (!m){ m = sh(new THREE.Mesh(new THREE.BufferGeometry(), yarnMat(hex))); workG.add(m); dyn[i] = m; }
+  const cv = new THREE.CatmullRomCurve3(pts, false, 'centripetal'); cv.getUtoTmapping = u => u; const N = (pts.length-1)*seg; m.geometry.dispose(); m.geometry = new THREE.TubeGeometry(cv, N, rad, RAD, false);
+  m.geometry.setDrawRange(0, Math.floor(clamp(frac,0,1)*N + 1e-6)*RAD*6); m.material = yarnMat(hex); m.visible = frac > 0; m.userData = {cv, N}; return m; }
 /* 活動零件 */
 const rodGeo = new THREE.CylinderGeometry(1,1,1,8); rodGeo.translate(0,.5,0);
 const mkRod = () => { const m = sh(new THREE.Mesh(rodGeo, yarnMat('#c4473f'))); workG.add(m); return m; };
-const rodA = mkRod(), rodB = mkRod(), YAX = new V3(0,1,0), tmp = new V3();
+const rodA = mkRod(), rodB = mkRod(), rodC = mkRod(), rodD = mkRod(), joinG = new THREE.Group(), YAX = new V3(0,1,0), tmp = new V3();
 function setRod(m, p, q, hex, r=YR){ tmp.subVectors(q, p); const len = tmp.length(); m.visible = len > .5; if (!m.visible) return; m.position.copy(p); m.scale.set(r, len, r); m.quaternion.setFromUnitVectors(YAX, tmp.normalize()); m.material = yarnMat(hex); }
 const knotM = sh(new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), yarnMat('#c4473f'))); workG.add(knotM);
 function makeScissors(){ const g = new THREE.Group(); g.halves = [];
@@ -345,13 +364,13 @@ const handG = new THREE.Group(); { const f1 = makeTip(10), f2 = makeTip(11.5); f
 const BALL = new V3(390, -400, MATZ+60);
 const ballM = sh(new THREE.Mesh(new THREE.SphereGeometry(60, 28, 20), yarnMat('#c4473f'))); ballM.position.copy(BALL); scene.add(ballM);
 const slackM = sh(new THREE.Mesh(new THREE.BufferGeometry(), yarnMat('#c4473f'))); scene.add(slackM);
-const tassG = new THREE.Group(); workG.add(tassG);
+const tassG = new THREE.Group(); workG.add(tassG, joinG);
 
 /* 準備材料的擺設 */
 const prepItems = [], labelBox = $('#labels');
 function buildPrep(R){ while (prepG.children.length) prepG.remove(prepG.children[0]); prepItems.length = 0; labelBox.textContent = '';
   const add = (x, y, label, fn) => { const g = new THREE.Group(); g.position.set(x, y, MATZ); fn(g); prepG.add(g); const el = document.createElement('span'); el.className = 'plabel'; el.textContent = label; labelBox.append(el); prepItems.push({g, el, x, y}); };
-  add(0, 250, '棒子 2 根・15 公分', g => { for (const dy of [-42,42]){ const m = sh(new THREE.Mesh(stickGeo, woodMat)); m.scale.set(.8,.8,1); m.position.set(0,dy,TH); g.add(m); } });
+  add(0, 250, '棒子 2 根', g => { for (const dy of [-42,42]){ const m = sh(new THREE.Mesh(stickGeo, woodMat)); m.scale.set(.8,.8,1); m.position.set(0,dy,TH); g.add(m); } });
   const n = R.bands.length, step = n > 4 ? 112 : 150, r = n > 4 ? 46 : 58;
   add(0, -10, `毛線 ${n} 色`, g => R.bands.forEach((b,i) => { const m = sh(new THREE.Mesh(new THREE.SphereGeometry(r, 24, 18), yarnMat(hx(b.c)))); m.position.set((i-(n-1)/2)*step, 0, r); m.rotation.set(i*.7, i*1.3, 0); g.add(m); }));
   add(-270, -290, '剪刀', g => { const s = makeScissors(); s.setOpen(.7); s.scale.setScalar(1.3); s.rotation.z = .5; s.position.z = 5; g.add(s); });
@@ -359,28 +378,34 @@ function buildPrep(R){ while (prepG.children.length) prepG.remove(prepG.children
     const band = new THREE.Mesh(new THREE.CylinderGeometry(34.5,35,30,24,1,true), roseMat); band.rotation.x = HALF; band.position.z = 44;
     const cap = sh(new THREE.Mesh(new THREE.ConeGeometry(17,52,20), std({color:'#e28a3b', roughness:.5}))); cap.rotation.x = HALF; cap.position.z = 118; g.add(b, band, cap); });
   add(290, -290, '紙膠帶', g => { const t = sh(new THREE.Mesh(new THREE.TorusGeometry(42,17,14,36), std({color:'#e79aa8', roughness:.7}))); t.scale.z = 1.1; t.position.z = 18; g.add(t); }); }
+function buildJoins(R){ while (joinG.children.length){ const g = joinG.children[0]; g.traverse(o => { if (o.geometry && o.geometry !== rodGeo) o.geometry.dispose(); }); joinG.remove(g); }
+  R.starts.slice(1).forEach(k => { const A = wraps[k].userData.cv.getPoint(0), C = K5.map(q => kmap(joinBase(A), q)), g = new THREE.Group();
+    [[-1,R.cols[k-1]],[1,R.cols[k]]].forEach(([sd,hex]) => { const pts = pairPts(C, sd, 5.2); g.add(sh(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 5, 6, false), yarnMat(hex))));
+      const r = sh(new THREE.Mesh(rodGeo, yarnMat(hex))); setRod(r, A, pts[0], hex, 5); g.add(r); }); joinG.add(g); }); }
 function buildTassels(R){ while (tassG.children.length) tassG.remove(tassG.children[0]); const cols = R.bands.map(b => hx(b.c)), last = R.cols[R.K-1];
   for (const a of [0,1,2]){ const g = new THREE.Group(), t = F3(a, ARM-16, 0, zc(a)), vert = a === 1; g.position.set(t.x, t.y - (vert ? 14 : H+2), t.z);
     const ring = sh(new THREE.Mesh(new THREE.TorusGeometry(vert ? 24 : 25, 5, 8, 20), yarnMat(last))); ring.position.set(0, vert ? 10 : H+2, 0); if (vert) ring.rotation.x = HALF; else ring.rotation.y = HALF; ring.scale.z = vert ? 1 : .55; g.add(ring);
-    const sw = new THREE.Group(); for (let i=0;i<8;i++){ const m = sh(new THREE.Mesh(rodGeo, yarnMat(cols[i%cols.length]))), an = i/8*TAU; m.scale.set(3.4, 150, 3.4); m.position.set(Math.cos(an)*5, 0, Math.sin(an)*5); m.rotation.set(Math.PI + Math.sin(an)*.07, 0, Math.cos(an)*.07); sw.add(m); }
+    const sw = new THREE.Group(); for (let i=0;i<8;i++){ const m = sh(new THREE.Mesh(rodGeo, yarnMat(cols[i%cols.length]))), an = i/8*TAU; m.scale.set(3.4, 110, 3.4); m.position.set(Math.cos(an)*5, 0, Math.sin(an)*5); m.rotation.set(Math.PI + Math.sin(an)*.07, 0, Math.cos(an)*.07); sw.add(m); }
     const neck = sh(new THREE.Mesh(new THREE.TorusGeometry(9, 3.5, 8, 16), yarnMat(last))); neck.rotation.x = HALF; neck.position.y = -24; g.add(sw, neck); g.sw = sw; tassG.add(g); } }
 
 /* ── 畫面狀態 ── */
-const DEF = {scene:'work', pp:1, cross:1, glue:0, mark:1, tail:1, thumb:0, nx:6, xh:false, k:0, f:0, lin:false, th:0, sway:0, flip:0,
+const DEF = {scene:'work', pp:1, cross:1, glue:0, mark:1, tail:1, thumb:0, nx:4, tags:0, jn:0, xh:false, k:0, f:0, lin:false, th:0, sway:0, flip:0,
   z:1, cx:0, cy:0, tilt:.5, az:-HALF, hand:true, cue:null, label:null, cc:null, ccK:0, fin:0, hang:0, tas:0};
-const finalV = R => ({...DEF, k:R.K, hand:false, fin:1, hang:1, tas:1, z:.9, cy:-10, tilt:.3});
+const finalV = R => ({...DEF, k:R.K, jn:R.bands.length-1, hand:false, fin:3, hang:1, tas:1, z:.82, cy:-10, tilt:.3});
 const zcam = r => clamp(360/(r+150), 1, 1.9);
 const orb = {az:0, tilt:0};
 let R = null;
 
 function applyV(V, useOrb=true){
   const prep = V.scene === 'prep'; prepG.visible = prep; workG.visible = !prep;
-  for (const m of [rodA, rodB, knotM, scis, handG, ballM, slackM, glueM, thumbM]) m.visible = false;
+  const tags = []; let ball = true;
+  for (const m of [rodA, rodB, rodC, rodD, knotM, scis, handG, ballM, slackM, glueM, thumbM]) m.visible = false;
+  for (const m of dyn) if (m) m.visible = false;
   const tilt = clamp(V.tilt + (useOrb ? orb.tilt : 0), .1, 1.48), az = V.az + (useOrb ? orb.az : 0), dist = 1586/V.z, tz = prep ? MATZ : 0;
   camera.position.set(V.cx + dist*Math.sin(tilt)*Math.cos(az), -V.cy + dist*Math.sin(tilt)*Math.sin(az), tz + dist*Math.cos(tilt)); camera.lookAt(V.cx, -V.cy, tz); camera.updateMatrixWorld();
   if (prep){ prepItems.forEach((it,i) => { const s = Math.max(.0001, back(seg(V.pp, i*.15, i*.15+.28))); it.g.scale.setScalar(s); it.g.visible = s > .01;
       tmp.set(it.x, it.y - (i === 0 ? 105 : 100), MATZ).project(camera); it.el.hidden = s < .9; it.el.style.left = ((tmp.x+1)*50).toFixed(2)+'%'; it.el.style.top = ((1-tmp.y)*50).toFixed(2)+'%'; });
-    return; }
+    return tags; }
   prepItems.forEach(it => it.el.hidden = true);
   const K = R.K, c0 = R.cols[0], lastH = R.cols[K-1];
   workG.rotation.set(0, V.flip*Math.PI, -(V.th + V.sway));
@@ -390,36 +415,55 @@ function applyV(V, useOrb=true){
   setFrac(startM, startT(V));
   if (V.thumb > 0){ const e = ease(V.thumb); thumbM.visible = true; thumbM.position.set(-84, 6, YR*2 + 15 + 80*(1-e)); thumbM.rotation.set(-.3, 0, .12); thumbM.scale.setScalar(1); }
   let hand = null, from = null, hex = R.cols[Math.min(V.k, K-1)];
-  if (V.xh){ const o = contact(startM, startT(V)); from = o.c; hand = o.h; hex = c0; }
+  if (V.xh){ const o = contact(startM, startT(V)); from = o.c; hand = o.h; hex = c0;
+    if (V.tags){ const e0 = startM.userData.cv.getPoint(0); e0.z += 16; tags.push({p:e0, text:'線頭（短的這頭）'}, {p:o.h.clone().add(new V3(0,0,30)), text:'連著線球的這頭，用它來繞'}); } }
   const kd = Math.min(V.k, K); for (let k=0;k<=KMAX;k++) setFrac(wraps[k], k < kd ? 1 : 0);
-  setFrac(hangM, 0); tassG.visible = false;
+  setFrac(hangM, 0); tassG.visible = false; joinG.children.forEach((g,i) => g.visible = i < V.jn);
 
-  if (V.cc != null){ const k = V.ccK, p = V.cc, w = wraps[k], A = w.userData.cv.getPoint(0), idle = contact(w, 0).h, oldH = R.cols[k-1], newH = R.cols[k];
-    const dir = wraps[k-1].userData.cv.getTangent(1), far = A.clone().addScaledVector(dir, 125); far.z += 75;
-    const Hd = idle.clone().lerp(far, ease(seg(p,0,.12))*(1-ease(seg(p,.9,1)))), C = A.clone().lerp(far, .55), q = C.clone().lerp(A, ease(seg(p,.68,1)));
-    if (p < .25){ setRod(rodA, A, Hd, oldH); hand = Hd; hex = oldH; }
-    else { if (p < .995) setRod(rodA, A, q, oldH);
-      if (p >= .4){ setRod(rodB, Hd.clone().lerp(q, ease(seg(p,.4,.6))), Hd, newH); hand = Hd; hex = newH;
-        const s = YR*1.5*seg(p,.56,.66)*(1-seg(p,.93,1)); if (s > .2){ knotM.visible = true; knotM.position.copy(q); knotM.scale.setScalar(s); knotM.material = yarnMat(newH); } } }
-    if (p < .4){ const s = 1 - seg(p,.3,.4); if (s > .02){ const perp = new V3(-dir.y, dir.x, 0).normalize(); scis.visible = true; scis.scale.setScalar(s); scis.setOpen(1 - seg(p,.1,.24));
-        scis.position.copy(C).addScaledVector(perp, -34); scis.rotation.set(0, 0, Math.atan2(perp.y, perp.x)); } }
-  } else if (V.fin > 0){ const p = V.fin, last = wraps[K-1], cv = last.userData.cv, Xp = cv.getPoint(7/8), C = cv.getPoint(7.5/8);
-    if (p < .3){ const o = contact(wraps[K], 0); from = o.c; hand = o.h; const d = cv.getTangent(7.5/8), perp = new V3(-d.y, d.x, 0).normalize();
-      scis.visible = true; scis.scale.setScalar(1); scis.setOpen(1 - seg(p,.12,.27)); scis.position.copy(C).addScaledVector(perp, -34); scis.position.z += 8; scis.rotation.set(0, 0, Math.atan2(perp.y, perp.x)); }
-    else { setFrac(last, 7/8); const e = ease(seg(p,.3,.6)); setRod(rodA, Xp, C.clone().lerp(KN, e), lastH);
-      if (V.hang <= 0 && e >= 1) setRod(rodB, KN, tmp.copy(KN).add(new V3(32,26,6)).clone(), lastH, YR*.85);
-      const s = YR*1.5*seg(p,.5,.62); if (s > .2){ knotM.visible = true; knotM.position.copy(KN); knotM.scale.setScalar(s); knotM.material = yarnMat(lastH); }
-      const gl = seg(p,.68,.85); if (gl > 0 && p < 1){ glueM.visible = true; glueM.position.copy(KN); glueM.position.z += 4; glueM.scale.set(14*gl, 12*gl, 9*gl); glueM.material.opacity = .9 - .55*seg(p,.88,1); } }
+  if (V.cc != null){ /* 換顏色：剪線 → 新線併上來 → 兩條一起打結 → 結藏到背面 */
+    const k = V.ccK, ph = Math.min(3, Math.floor(V.cc)), p = V.cc >= 4 ? 1 : V.cc - ph, A = wraps[k].userData.cv.getPoint(0), oldH = R.cols[k-1], newH = R.cols[k], bi = R.starts.indexOf(k);
+    const oldN = YARN[R.bands[bi-1].c].n + '色', newN = YARN[R.bands[bi].c].n + '色';
+    const B = new V3(A.x+6, A.y+6, A.z+24), idle = contact(wraps[k], 0).h, Hn = new V3(B.x+185, B.y-60, B.z+50), U = new V3(KQ,KQ,0), W = new V3(-KQ,KQ,0);
+    const snip = (at, open) => { scis.visible = true; scis.scale.setScalar(1); scis.setOpen(open); scis.position.copy(at).addScaledVector(W,-36); scis.position.z += 4; scis.rotation.set(0,0,Math.atan2(W.y,W.x)); };
+    if (ph === 0){ const far = kmap(B, [430,0,14]);
+      if (p < .25){ from = A; hand = idle.clone().lerp(far, ease(p/.25)); hex = oldH; }
+      else { const pts = pairPts(K0.map(q => kmap(B,q)), -1, 5.2); dynTube(0, pts, 5, oldH, 1, 3); setRod(rodB, A, pts[0], oldH, 5);
+        if (p < .5){ hand = far; hex = oldH; setRod(rodC, pts[pts.length-1], far, oldH, 5); snip(pts[pts.length-1], 1 - seg(p,.3,.45)); }
+        else tags.push({p:kmap(B,[190,34,0]), text:`${oldN}線留 8 公分`}); }
+    } else { let Kc = K0, base = B, shift = 0, hn = Hn;
+      if (ph === 1){ shift = (1 - ease(seg(p,0,.7)))*340; hn = Hn.clone().addScaledVector(U, shift); }
+      else if (ph === 2) Kc = p < .33 ? lerpK(K0,K1,ease(p/.33)) : p < .68 ? lerpK(K1,K2,ease((p-.33)/.35)) : lerpK(K2,K3,ease((p-.68)/.32));
+      else { Kc = p < .3 ? lerpK(K3,K4,ease(p/.3)) : lerpK(K4,K5,ease(seg(p,.38,.5))); base = B.clone().lerp(joinBase(A), ease(seg(p,.58,.9))); hn = Hn.clone().lerp(idle, ease(seg(p,.62,1))); }
+      const C = Kc.map(q => kmap(base, q)), po = pairPts(C, -1, 5.2), pn = pairPts(C, 1, 5.2); if (shift) pn.forEach(v => v.addScaledVector(U, shift));
+      dynTube(0, po, 5, oldH, 1, 3); dynTube(1, pn, 5, newH, 1, 3); setRod(rodB, A, po[0], oldH, 5); hand = hn; hex = newH;
+      if (ph === 3 && p > .58){ setRod(rodC, pn[0], A, newH, 5); from = A; } else setRod(rodC, pn[0], hn, newH, 5);
+      if (ph === 3 && p > .3 && p < .56) snip(pn[pn.length-1], 1 - seg(p,.36,.48));
+      if (ph === 1){ tags.push({p:po[30].clone().addScaledVector(W,-34), text:`${oldN}（舊線）`}); if (p > .5) tags.push({p:pn[14].clone().addScaledVector(W,34), text:`${newN}（新線）`}); } }
+  } else if (V.fin > 0){ /* 收尾：剪線 → 半結 → 再一個半結 → 白膠 */
+    const f = V.fin, ph = Math.min(2, Math.floor(f)), p = f >= 3 ? 1 : f - ph, last = wraps[K-1], cv = last.userData.cv, Xp = cv.getPoint(7/8), d = cv.getTangent(7.6/8); d.z = 0; d.normalize();
+    const d2 = new V3(.94,.34,0), free = Array.from({length:6}, (_,i) => Xp.clone().addScaledVector(d2, i*50).add(new V3(0,0,i*7))), far = Xp.clone().addScaledVector(d2, 340).add(new V3(0,0,60));
+    if (ph === 0 && p < .5){ setFrac(last, 7/8); const perp = new V3(-d2.y, d2.x, 0);
+      if (p < .25){ from = Xp; hand = contact(wraps[K], 0).h.lerp(far, ease(p/.25)); }
+      else { dynTube(0, free, TR, lastH); setRod(rodC, free[5], far, lastH, TR); hand = far;
+        scis.visible = true; scis.scale.setScalar(1); scis.setOpen(1 - seg(p,.3,.45)); scis.position.copy(free[5]).addScaledVector(perp, -34); scis.position.z += 4; scis.rotation.set(0, 0, Math.atan2(perp.y, perp.x)); } }
+    else { setFrac(last, 7/8);
+      if (ph === 0) dynTube(0, free, TR, lastH);
+      else { const s1 = ph === 1 ? hitchState(p) : {L:12.5, fr:1}, P1 = hitchPts(YK, s1.L, Xp), m1 = dynTube(0, ph === 1 ? P1 : P1.slice(0,10), TR, lastH, s1.fr);
+        let cur = s1.fr < 1 ? {m:m1, fr:s1.fr} : null;
+        if (ph === 2){ const s2 = f >= 3 ? {L:12.5, fr:1} : hitchState(seg(p,0,.72)), m2 = dynTube(1, hitchPts(YK+14, s2.L, P1[9]), TR, lastH, s2.fr); if (s2.fr < 1) cur = {m:m2, fr:s2.fr};
+          const gl = seg(p,.76,.9); if (gl > 0 && f < 3){ glueM.visible = true; glueM.position.set(2, YK+17, 44); glueM.scale.set(17*gl, 15*gl, 8*gl); glueM.material.opacity = .92; } }
+        if (cur){ const o = contact(cur.m, cur.fr); from = o.c; hand = o.c.clone().lerp(o.h, .7); ball = false; } } }
     setFrac(hangM, V.hang);
     if (V.tas > 0){ tassG.visible = true; for (const g of tassG.children) g.sw.scale.y = Math.max(.001, V.tas); }
   } else if (V.hand && !V.xh){ const w = wraps[V.k], t = tOf(V.k, V.f, V.lin); if (V.k < K) setFrac(w, t); const o = contact(w, t); from = o.c; hand = o.h; }
 
   if (hand){ if (from) setRod(rodA, from, hand, hex);
     workG.updateMatrixWorld(true); const hw = workG.localToWorld(hand.clone());
-    handG.visible = true; handG.position.copy(hw); ballM.visible = true; ballM.material = yarnMat(hex);
+    handG.visible = true; handG.position.copy(hw); if (!ball) return tags; ballM.visible = true; ballM.material = yarnMat(hex);
     const top = BALL.clone(); top.z += 54; top.x -= 16; const out = new V3(hw.x, hw.y, 0); if (out.length() < 1) out.set(1,-1,0); out.normalize();
-    const p1 = hw.clone().addScaledVector(out, 60); p1.z = Math.max(hw.z, 30) + 70; const p2 = top.clone(); p2.z += 140;
+    const p1 = hw.clone().addScaledVector(out, 110); p1.z = Math.max(hw.z, 30) + 70; const p2 = top.clone(); p2.z += 140;
     slackM.geometry.dispose(); slackM.geometry = new THREE.TubeGeometry(new THREE.CubicBezierCurve3(hw.clone(), p1, p2, top), 36, YR*.7, 6, false); slackM.material = yarnMat(hex); slackM.visible = true; }
+  return tags;
 }
 
 /* ── 步驟 ── */
@@ -431,16 +475,16 @@ function buildSteps(R){
   const S = [], K = R.K, b0 = R.bands[0];
   const close = (V, k) => { V.z = 3; V.cx = rr(k)+22; V.cy = 6; };
   const cname = b => YARN[b.c].n + '色';
-  S.push({t:'準備材料', d:`兩根一樣長的棒子、${R.bands.length} 種顏色的毛線、剪刀、白膠、紙膠帶。毛線選中粗的，好握，也繞得快。`, tip:'冰棒棍、竹筷、樹枝都可以，長度 12 到 20 公分。', dur:4200,
+  S.push({t:'準備材料', d:`兩根一樣長的棒子、${R.bands.length} 種顏色的毛線、剪刀、白膠、紙膠帶。毛線選中粗的，好握，也繞得快。`, tip:'冰棒棍、竹筷、樹枝都可以，長度 15 到 20 公分。', dur:4200,
     set(p,V){ V.scene = 'prep'; V.pp = p; V.z = .95; V.tilt = .42; }});
   S.push({t:'疊成十字', d:'一根橫放，中心點一滴白膠。另一根轉成直的，對準中心壓上去。在右邊那根的尾端貼一小段紙膠帶。', tip:'紙膠帶是數圈用的記號。線每回到記號一次，就是繞完一圈。', dur:4400,
     set(p,V){ V.tilt = .75; V.glue = seg(p,0,.18); V.cross = ease(seg(p,.22,.78)); V.mark = seg(p,.84,.94); V.tail = 0; V.nx = 0; V.hand = false; if (p > .86) V.label = '紙膠帶記號'; }});
-  S.push({t:'線頭壓在棒子上', d:`拿${cname(b0)}的線，線頭留 5 公分，順著左邊的棒子擺好，用拇指壓住。`, tip:'線尾不用剪。等一下繞線時會一起包進去。', dur:3400,
-    set(p,V){ const e = ease(seg(p,0,.35)); V.z = lerp(1,2.6,e); V.tilt = lerp(.75,.7,e); V.tail = ease(seg(p,.25,.6)); V.thumb = seg(p,.6,.92); V.nx = 0; V.hand = false; if (p > .8) V.label = '拇指壓住'; }});
-  S.push({t:'斜繞 3 圈', d:'線從拇指壓住的地方出發，由左上拉到右下，壓過十字中心，從背面繞回左上。同一個斜向繞 3 圈。', tip:'每一圈都拉緊，十字才不會轉動。', dur:4200,
-    set(p,V){ const e = ease(seg(p,0,.2)); V.z = 2.6; V.tilt = lerp(.7,.95,e); V.az = lerp(-HALF,-1.3,e); V.nx = 3*p; V.xh = true; V.thumb = 1 - seg(p,.05,.3); V.label = `斜繞第 ${Math.min(3, Math.floor(p*3)+1)} 圈`; }});
-  S.push({t:'換方向再繞 3 圈', d:'線從正面跨過左邊的棒子，換到左下。由左下拉到右上，再繞 3 圈。正面看起來是一個叉叉，十字就固定好了。', tip:'輕輕扭一下，兩根棒子不會動就可以開始繞了。', dur:4200,
-    set(p,V){ const e = ease(seg(p,.85,1)); V.z = 2.6; V.tilt = lerp(.95,CA[0],e); V.az = -1.3; V.nx = 3 + 3*p; V.xh = p < 1; V.label = p < 1 ? `另一個方向第 ${Math.min(3, Math.floor(p*3)+1)} 圈` : '固定好了'; }});
+  S.push({t:'從線球拉出線，壓住線頭', d:`從${cname(b0)}的線球拉出一段線。線頭（短的那一頭）留 5 公分，順著左邊的棒子擺好，用拇指壓住。另一隻手拿著連到線球的那一頭，接下來都是用這一頭去繞。`, tip:'線頭不用剪。等一下繞線時會一起包進去。', dur:6000,
+    set(p,V){ V.z = 1.05; V.cx = 110; V.cy = 120; V.tilt = .7; V.xh = true; V.nx = 0; V.tail = ease(seg(p,.1,.5)); V.thumb = seg(p,.5,.72); V.tags = p > .72 ? 1 : 0; if (p > .6 && p <= .72) V.label = '拇指壓住線頭'; }});
+  S.push({t:'斜繞 2 圈', d:'用連著線球的那一頭，從拇指壓住的地方出發：由左上拉到右下，壓過十字中心，從背面繞回左上。同一個斜向繞 2 圈。', tip:'每一圈都拉緊，十字才不會轉動。繞穩了拇指就可以放開。', dur:5200,
+    set(p,V){ const e = ease(seg(p,0,.22)); V.z = lerp(1.05,2.6,e); V.cx = 110*(1-e); V.cy = 120*(1-e); V.tilt = lerp(.7,.95,e); V.az = lerp(-HALF,-1.3,e); V.nx = 2*p; V.xh = true; V.thumb = 1 - seg(p,.3,.5); V.label = `斜繞第 ${Math.min(2, Math.floor(p*2)+1)} 圈`; }});
+  S.push({t:'換方向再繞 2 圈', d:'線從正面跨過左邊的棒子（順便壓住線頭），換到左下。由左下拉到右上，再繞 2 圈。正面看起來是一個叉叉，十字就固定好了。', tip:'輕輕扭一下，兩根棒子不會動就可以開始繞了。', dur:5200,
+    set(p,V){ const e = ease(seg(p,.85,1)); V.z = 2.6; V.tilt = lerp(.95,CA[0],e); V.az = -1.3; V.nx = 2 + 2*p; V.xh = p < 1; V.label = p < 1 ? `另一個方向第 ${Math.min(2, Math.floor(p*2)+1)} 圈` : '固定好了'; }});
   S.push({t:'壓：線壓過棒子正面', d:'線停在右上角。接著往右邊貼了記號的那根棒子走，從上面壓過它的正面。', tip:'口訣第一個字是「壓」。線一定從棒子的正面經過。', dur:3400,
     set(p,V){ const e = ease(seg(p,0,.2)); close(V,0); V.z = lerp(2.6,3,e); V.cx *= e; V.cy *= e; V.f = .34*p*.9999; camWrap(V, V.f); V.cue = 0; }});
   S.push({t:'繞：從後面繞回來', d:'線鑽到棒子後面，貼著背面繞回來，回到棒子的另一側。', tip:'鏡頭會轉到側面，看線怎麼走棒子的背面。也可以拖曳畫面，自己轉著看。', dur:4200,
@@ -457,20 +501,31 @@ function buildSteps(R){
   const fill = (bi) => { const b = R.bands[bi], k0 = bi === 0 ? 4 : R.starts[bi], k1 = R.starts[bi] + b.n*4, last = bi === R.bands.length-1;
     S.push({t:`${cname(b)}繞滿 ${b.n} 圈`, d: bi === 0 ? `一圈接一圈往外繞，${cname(b)}總共 ${b.n} 圈。新的線緊靠在上一圈的外側，不要疊上去。` : `用同樣的口訣繼續繞 ${b.n} 圈。${last ? '繞到離棒子尾端大約 1 公分就停下來。' : '線一樣貼著上一圈的外側排好。'}`,
       tip: bi === 0 ? '鬆了就退回去重拉。線平平排好，菱形才會整齊。' : last ? '棒子尾端要留一點位置，最後才有地方打結。' : '每回到紙膠帶記號，就數一圈。', dur:1700*(k1-k0)/4 + 1200,
-      set(p,V){ const kf = lerp(k0, k1, p); V.k = Math.min(k1, Math.floor(kf)); V.f = p >= 1 ? 0 : (kf - V.k)*.9999; V.lin = true; V.z = zcam(rr(kf));
+      set(p,V){ const kf = lerp(k0, k1, p); V.k = Math.min(k1, Math.floor(kf)); V.f = p >= 1 ? 0 : (kf - V.k)*.9999; V.lin = true; V.jn = bi; V.z = zcam(rr(kf));
         V.label = p >= 1 ? `${cname(b)}完成，共 ${b.n} 圈` : `${cname(b)}第 ${Math.floor((kf - R.starts[bi])/4)+1} 圈`; }}); };
   fill(0);
-  for (let bi=1;bi<R.bands.length;bi++){ const k = R.starts[bi], b = R.bands[bi], E = FP(k&3, rr(k), -YO), zz = clamp(430/(rr(k)+70), 1.25, 2.3), z0 = zcam(rr(k));
-    S.push({t:`換顏色：接上${cname(b)}`, d:`線留 5 公分剪斷，和${cname(b)}的線頭打兩個結。把結推到棒子背面，線尾順著棒子擺，接著繞就會被包住。`, tip:'結打在靠近棒子的地方，正面就看不到。', dur:6400,
-      set(p,V){ const e = ease(seg(p,0,.15)) * (1 - ease(seg(p,.88,1))); V.k = k; V.cc = p; V.ccK = k; V.z = lerp(z0,zz,e); V.cx = (E[0]+30)*e; V.cy = (E[1]-30)*e; V.tilt = lerp(.5,.8,e);
-        V.label = p < .3 ? '留 5 公分，剪斷' : p < .66 ? '和新的線打兩個結' : p < .95 ? '把結推到背面' : null; }});
+  for (let bi=1;bi<R.bands.length;bi++){ const k = R.starts[bi], b = R.bands[bi], ob = R.bands[bi-1], r = rr(k), z0 = zcam(r), on = cname(ob), nn = cname(b);
+    const ccSet = (V, c) => { const e = ease(clamp(c/.2,0,1)) * (1 - ease(clamp((c-3.75)/.25,0,1))), w = ease(clamp((c-1.75)/.4,0,1));
+      V.k = k; V.cc = c; V.ccK = k; V.jn = bi-1; V.z = lerp(z0, lerp(1.45,2.25,w), e); V.cx = lerp(r+125, r+68, w)*e; V.cy = -lerp(150, 92, w)*e; V.tilt = lerp(.5,.42,e);
+      const ph = Math.floor(c), p = c - ph;
+      V.label = ph === 0 ? (p < .5 ? `剪斷${on}的線` : null) : ph === 1 ? '兩個線頭朝同一邊，併在一起' : ph === 2 ? (p < .33 ? '兩條線一起繞一個圈' : p < .68 ? '線頭從圈的後面穿出來' : '拉緊，再打一次') : ph === 3 ? (p < .3 ? '把結推到靠近棒子' : p < .56 ? '線頭剪到剩 1 公分' : p < .92 ? '結撥到棒子背面' : null) : null; };
+    if (bi === 1){
+      S.push({t:`換顏色 1：剪斷${on}的線`, d:`${on}繞完了。線留大約 8 公分，剪斷。`, tip:'線頭留長一點比較好打結，多出來的最後再剪。', dur:4200, set(p,V){ ccSet(V, p*.9999); }});
+      S.push({t:`換顏色 2：${nn}的線併上來`, d:`拿${nn}的線，線頭和剛剪的${on}線頭併在一起，兩個線頭朝同一邊。${nn}連著線球的那一頭，留在靠棒子的這一邊。`, tip:'兩條線像一雙筷子一樣並排拿好。', dur:4200, set(p,V){ ccSet(V, 1 + p*.9999); }});
+      S.push({t:'換顏色 3：兩條線一起打結', d:'把兩條線當成一條：先繞一個圈，再把線頭從圈的後面穿出來，拉緊。同樣的動作再打一次，結才不會鬆。', tip:'這就是平常綁東西的單結，只是兩條線一起打。', dur:8000, set(p,V){ ccSet(V, 2 + p*.9999); }});
+      S.push({t:'換顏色 4：結藏到背面', d:`把結推到靠近棒子的地方，多的線頭剪到剩 1 公分，再把結撥到棒子的背面。接下來用${nn}的線繼續繞。`, tip:'結在背面，正面就看不到。', dur:6500, set(p,V){ ccSet(V, 3 + p); }});
+    } else S.push({t:`換顏色：接上${nn}`, d:`做法和前面一樣：${on}的線留 8 公分剪斷，${nn}的線併上來，兩條一起打兩次結，把結推到背面、線頭剪短。`, tip:'忘記怎麼打結，可以回到「換顏色 3」再看一次。', dur:13000, set(p,V){ ccSet(V, 4*p); }});
     fill(bi); }
-  const fx = 40, fy = -rr(K) + 70, zfin = 1.7;
-  S.push({t:'收尾打結', d:'線留 25 公分剪斷。在最後這根棒子上繞一圈、打兩個結，再點一滴白膠。', tip:'白膠乾了以後是透明的，可以放心塗。', dur:6000,
-    set(p,V){ const e = ease(seg(p,0,.18)); V.k = K; V.fin = Math.max(.001, p); V.z = lerp(1, zfin, e); V.cx = fx*e; V.cy = fy*e; V.tilt = lerp(.5,.75,e);
-      V.label = p < .3 ? '留 25 公分，剪斷' : p < .64 ? '繞棒子一圈，打兩個結' : '點一滴白膠'; }});
-  S.push({t:'做掛繩', d:'剩下的線尾在同一根棒子的尾端繞成一個圈，打結固定，就可以掛起來。', tip:'圈圈大約兩根手指寬，好掛也好拿。', dur:4200,
-    set(p,V){ const e = ease(seg(p,0,.3)); V.k = K; V.fin = 1; V.hand = false; V.z = lerp(zfin,.9,e); V.cx = lerp(fx,0,e); V.cy = lerp(fy,-10,e); V.tilt = lerp(.75,.3,e); V.hang = ease(seg(p,.25,.95)); }});
+  const NJ = R.bands.length-1, lastN = cname(R.bands[NJ]), f0 = [150, -(rr(K)+40), 1.5, .5, -HALF], f1 = [14, -(YK+10), 2.5, .72, -1.05];
+  const fcam = (V, a, b, t) => { V.cx = lerp(a[0],b[0],t); V.cy = lerp(a[1],b[1],t); V.z = lerp(a[2],b[2],t); V.tilt = lerp(a[3],b[3],t); V.az = lerp(a[4],b[4],t); };
+  S.push({t:'收尾 1：剪線', d:`最後一圈繞完，${lastN}的線留大約 25 公分，剪斷。這段線尾要用來打結，等一下還要做掛繩。`, tip:'寧可留長一點，太短會很難打結。', dur:4400,
+    set(p,V){ V.k = K; V.jn = NJ; V.fin = Math.max(.001, p*.9999); fcam(V, [0,0,1,.5,-HALF], f0, ease(seg(p,0,.25))); V.label = p < .5 ? '留 25 公分，剪斷' : '這段線尾拿來打結'; }});
+  S.push({t:'收尾 2：繞棒子一圈，打一個結', d:'線尾繞最後這根棒子一圈。回到正面後，把線頭從剛剛那一圈線的底下穿過去，拉緊。這樣就是一個結。', tip:'線頭要穿過「線和棒子的中間」，拉緊後線會自己壓住線頭。', dur:9500,
+    set(p,V){ V.k = K; V.jn = NJ; V.fin = 1 + p*.9999; fcam(V, f0, f1, ease(seg(p,0,.15))); V.label = p < .4 ? '線尾繞棒子一圈' : p < .5 ? '把這一圈稍微撐開' : p < .78 ? '線頭從線的底下穿過去' : '拉緊'; }});
+  S.push({t:'收尾 3：再打一個結，點白膠', d:'同樣的動作再做一次，打第二個結，才不會鬆開。最後在結上點一滴白膠加強。', tip:'只塗白膠、不打結，線很容易鬆掉。一定要先打結，白膠只是加強。', dur:9000,
+    set(p,V){ V.k = K; V.jn = NJ; V.fin = 2 + p; fcam(V, f1, f1, 0); V.label = p < .72 ? '同樣再打一個結' : p < 1 ? '點一滴白膠' : '兩個結，打好了'; }});
+  S.push({t:'做掛繩', d:'剩下的線尾在同一根棒子的尾端繞成一個圈，打結固定，就可以掛起來。', tip:'圈圈大約兩根手指寬，好掛也好拿。', dur:4400,
+    set(p,V){ const F = finalV(R); Object.assign(V, F); V.tas = 0; fcam(V, f1, [0,-10,.82,.3,-HALF], ease(seg(p,0,.35))); V.hang = ease(seg(p,.3,.95)); }});
   S.push({t:'加上流蘇', d:'每一束剪 4 條 6 公分的線，對折後綁在左、右、下三根棒子的尾端。這一步可做可不做。', tip:'用剩下的各色線頭來做，剛好不浪費。', dur:3800,
     set(p,V){ Object.assign(V, finalV(R)); V.tas = ease(seg(p,.1,.9)); }});
   S.push({t:'完成', d:'畫面會翻到背面再翻回來：正面是平整的菱形，背面看得到棒子，兩面都好看。掛在窗邊或門上，送給想守護的人。', tip:'在棒子背面寫上名字和日期，就是一份有紀念的禮物。', dur:7000,
@@ -490,10 +545,13 @@ const customRecipe = () => { const n = st.custom.n, rs = splitRounds(n); return 
 const recipeAt = i => i < PRESETS.length ? makeRecipe(PRESETS[i].name, PRESETS[i].bands) : customRecipe();
 let steps = [], timer = 0, raf = 0;
 
-function useRecipe(rec){ R = rec; for (let k=0;k<rec.K;k++) wraps[k].material = yarnMat(rec.cols[k]); startM.material = yarnMat(rec.cols[0]); hangM.material = yarnMat(rec.cols[rec.K-1]); buildTassels(rec); }
+function useRecipe(rec){ R = rec; for (let k=0;k<rec.K;k++) wraps[k].material = yarnMat(rec.cols[k]); startM.material = yarnMat(rec.cols[0]); buildJoins(rec); hangM.material = yarnMat(rec.cols[rec.K-1]); buildTassels(rec); }
 const computeV = (i,p) => { const V = {...DEF}; steps[i].set(p, V); return V; };
 function readTokens(){ const m = getComputedStyle(document.documentElement).getPropertyValue('--mat').trim() || '#93a39b'; scene.background = new THREE.Color(m); }
-function draw(){ const V = computeV(st.i, st.p); applyV(V); renderer.render(scene, camera);
+const tagEls = [0,1,2].map(() => { const el = document.createElement('span'); el.className = 'plabel tag'; el.hidden = true; el.setAttribute('aria-hidden','true'); document.querySelector('.stage-wrap').append(el); return el; });
+function placeTags(tags){ workG.updateMatrixWorld(true); tagEls.forEach((el,i) => { const t = tags[i]; el.hidden = !t; if (!t) return; tmp.copy(t.p); workG.localToWorld(tmp); tmp.project(camera);
+  el.textContent = t.text; el.style.left = clamp((tmp.x+1)*50, 16, 84).toFixed(1)+'%'; el.style.top = clamp((1-tmp.y)*50, 8, 90).toFixed(1)+'%'; }); }
+function draw(){ const V = computeV(st.i, st.p); placeTags(applyV(V) || []); renderer.render(scene, camera);
   cuesEl.hidden = V.cue == null; if (V.cue != null) [...cuesEl.children].forEach((el,i) => el.classList.toggle('on', i === V.cue));
   pillEl.hidden = !V.label; if (V.label) pillEl.textContent = V.label;
   $('#barFill').style.width = ((st.i + st.p)/steps.length*100).toFixed(1) + '%'; }
@@ -527,7 +585,7 @@ function renderEditor(){ const cnt = $('#cnt'); cnt.textContent = '';
       b.setAttribute('aria-pressed', st.custom.cols[i] === key); b.addEventListener('click', () => { st.custom.cols[i] = key; setRecipe(PRESETS.length); }); row.append(b); }
     ed.append(row); } }
 function renderMats(){ const ul = $('#mats'); ul.textContent = ''; const add = t => { const li = document.createElement('li'); li.textContent = t; ul.append(li); };
-  add('棒子 2 根：15 公分的冰棒棍、竹筷或樹枝');
+  add('棒子 2 根：15 到 20 公分的竹筷、長冰棒棍或樹枝');
   R.bands.forEach((b,bi) => { let mm = 150; for (let i=0;i<b.n;i++){ const r = rr(R.starts[bi] + i*4 + 2)/5; mm += 4*Math.SQRT2*r + 120; }
     if (bi === R.bands.length-1) mm += 450;
     add(`${YARN[b.c].n}色中粗毛線：約 ${Math.ceil(mm/100)*10} 公分（繞 ${b.n} 圈${bi === R.bands.length-1 ? '，含掛繩和流蘇' : ''}）`); });
